@@ -39,7 +39,7 @@ public class VideoItemPageParser {
 
         // create list of supported network protocols
         List<String> supportedProtocols = new ArrayList<String>();
-        ServiceTracker st = new ServiceTracker(ctx, INetworkProtocol.class.getName(), null);
+        ServiceTracker<INetworkProtocol, INetworkProtocol> st = new ServiceTracker<INetworkProtocol, INetworkProtocol>(ctx, INetworkProtocol.class, null);
         st.open();
         Object[] protocols = st.getServices();
         for (Object object : protocols) {
