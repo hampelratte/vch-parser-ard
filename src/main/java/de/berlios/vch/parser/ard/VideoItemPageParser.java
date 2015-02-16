@@ -5,11 +5,11 @@ import static de.berlios.vch.parser.ard.ARDMediathekParser.CHARSET;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import de.berlios.vch.http.client.HttpUtils;
 import de.berlios.vch.net.INetworkProtocol;
 import de.berlios.vch.parser.HtmlParserUtils;
+import de.berlios.vch.parser.IVideoPage;
 import de.berlios.vch.parser.VideoPage;
 import de.berlios.vch.parser.exceptions.NoSupportedVideoFoundException;
 
@@ -38,15 +39,7 @@ public class VideoItemPageParser {
         String content = HttpUtils.get(page.getUri().toString(), ARDMediathekParser.HTTP_HEADERS, ARDMediathekParser.CHARSET);
 
         // create list of supported network protocols
-        List<String> supportedProtocols = new ArrayList<String>();
-        ServiceTracker<INetworkProtocol, INetworkProtocol> st = new ServiceTracker<INetworkProtocol, INetworkProtocol>(ctx, INetworkProtocol.class, null);
-        st.open();
-        Object[] protocols = st.getServices();
-        for (Object object : protocols) {
-            INetworkProtocol protocol = (INetworkProtocol) object;
-            supportedProtocols.addAll(protocol.getSchemes());
-        }
-        st.close();
+        List<String> supportedProtocols = getSupportedProtocols(ctx);
 
         // first parse the available formats for this video
         List<VideoType> videos = parseAvailableVideos(content);
@@ -65,14 +58,6 @@ public class VideoItemPageParser {
         }
 
         if (bestVideo != null) {
-            // support for asx
-            // if (bestVideo.getUri().startsWith("http")) {
-            // Map<String, List<String>> headers = HttpUtils.head(bestVideo.getUri(), ARDMediathekParser.HTTP_HEADERS, ARDMediathekParser.CHARSET);
-            // String contentType = HttpUtils.getHeaderField(headers, "Content-Type");
-            // if ("video/x-ms-asf".equals(contentType)) {
-            // bestVideo.uriPart2 = AsxParser.getUri(bestVideo.getUri());
-            // }
-            // }
             page.setVideoUri(new URI(bestVideo.getUri()));
             page.getUserData().put("streamName", bestVideo.uriPart2);
 
@@ -88,24 +73,8 @@ public class VideoItemPageParser {
             page.setDescription(description);
             page.getUserData().remove("desc");
 
-            // parse pubDate
-            try {
-                Calendar date = parseDate(teaserContent);
-                logger.trace("Parsed date {}", date);
-                page.setPublishDate(date);
-            } catch (ParseException e) {
-                logger.warn("Couldn't parse publish date. Using current time!", e);
-                logger.trace("Content: {}", teaserContent);
-                page.setPublishDate(Calendar.getInstance());
-            }
-
-            // parse duration
-            try {
-                page.setDuration(parseDuration(teaserContent));
-            } catch (Exception e) {
-                logger.warn("Couldn't parse duration", e);
-                logger.trace("Content: {}", teaserContent);
-            }
+            parsePublishDate(page, teaserContent);
+            parseDuration(page, teaserContent);
 
             return page;
         } else {
@@ -113,19 +82,54 @@ public class VideoItemPageParser {
         }
     }
 
-    private static long parseDuration(String content) {
-        String subtitle = HtmlParserUtils.getText(content, "p.subtitle");
-        String[] tokens = subtitle.split("\\s*\\|\\s*");
-        String durationString = tokens[1];
-        Pattern p = Pattern.compile("\\s*(\\d+):(\\d+)\\s*min");
-        Matcher m = p.matcher(durationString);
-        if (m.matches()) {
+    private static void parseDuration(IVideoPage video, String itemContent) {
+        String text = HtmlParserUtils.getText(itemContent, "p.subtitle");
+        Matcher m = Pattern.compile("(\\d\\d):(\\d\\d)\\s*Min").matcher(text);
+        if (m.find()) {
             int minutes = Integer.parseInt(m.group(1));
             int seconds = Integer.parseInt(m.group(2));
-            return minutes * 60 + seconds;
+            video.setDuration(minutes * 60 + seconds);
         } else {
-            return 0;
+            logger.debug("No duration information found");
         }
+    }
+
+    private static void parsePublishDate(IVideoPage video, String itemContent) {
+        if (video.getPublishDate() != null) {
+            return;
+        }
+
+        try {
+            String text = HtmlParserUtils.getText(itemContent, "p.subtitle");
+            text += " " + HtmlParserUtils.getText(itemContent, "p.dachzeile");
+            Matcher dateMatcher = Pattern.compile("(\\d{2}\\.\\d{2}\\.\\d{4})").matcher(text);
+            if (dateMatcher.find()) {
+                String date = dateMatcher.group(1);
+                Date pubDate = new SimpleDateFormat("dd.MM.yyyy").parse(date);
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(pubDate);
+                cal.set(Calendar.HOUR_OF_DAY, 0);
+                cal.set(Calendar.MINUTE, 0);
+                video.setPublishDate(cal);
+            } else {
+                throw new RuntimeException("No publish date found in " + text);
+            }
+        } catch (Throwable t) {
+            logger.warn("Couldn't parse publish date", t);
+        }
+    }
+
+    private static List<String> getSupportedProtocols(BundleContext ctx) {
+        List<String> supportedProtocols = new ArrayList<String>();
+        ServiceTracker<INetworkProtocol, INetworkProtocol> st = new ServiceTracker<INetworkProtocol, INetworkProtocol>(ctx, INetworkProtocol.class, null);
+        st.open();
+        Object[] protocols = st.getServices();
+        for (Object object : protocols) {
+            INetworkProtocol protocol = (INetworkProtocol) object;
+            supportedProtocols.addAll(protocol.getSchemes());
+        }
+        st.close();
+        return supportedProtocols;
     }
 
     private static String parseDescription(String content) {
@@ -140,15 +144,6 @@ public class VideoItemPageParser {
 
     private static String parseTitle(String content) {
         return HtmlParserUtils.getText(content, "h4.headline");
-    }
-
-    private static Calendar parseDate(String content) throws ParseException {
-        String subtitle = HtmlParserUtils.getText(content, "p.subtitle");
-        String[] tokens = subtitle.split("\\s*\\|\\s*");
-        String dateString = tokens[0];
-        Calendar pubDate = Calendar.getInstance();
-        pubDate.setTime(new SimpleDateFormat("dd.MM.yyyy").parse(dateString));
-        return pubDate;
     }
 
     private static List<VideoType> parseAvailableVideos(String content) throws URISyntaxException, JSONException, IOException {
