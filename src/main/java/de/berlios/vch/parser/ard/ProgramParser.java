@@ -16,6 +16,7 @@ import de.berlios.vch.parser.OverviewPage;
 public class ProgramParser {
 
     public IOverviewPage parse(IOverviewPage opage) throws Exception {
+        opage.getPages().clear();
         String content = HttpUtils.get(opage.getUri().toString(), ARDMediathekParser.HTTP_HEADERS, CHARSET);
         Elements teasers = HtmlParserUtils.getTags(content, "div[class~=onlyWithJs] div.box div.teaser");
         for (Iterator<Element> iterator = teasers.iterator(); iterator.hasNext();) {
