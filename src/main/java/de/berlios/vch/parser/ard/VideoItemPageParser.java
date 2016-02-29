@@ -64,7 +64,7 @@ public class VideoItemPageParser {
             logger.info("Best video found is: " + page.getVideoUri().toString());
 
             // parse title
-            String teaserContent = HtmlParserUtils.getTag(content, "div[class~=onlyWithJs] div[class~=box] div.teaser div.textWrapper").html();
+            String teaserContent = HtmlParserUtils.getTag(content, "div[class~=modClipinfo] div.teaser div.textWrapper").html();
             page.setTitle(parseTitle(teaserContent));
 
             // parse description
@@ -84,13 +84,12 @@ public class VideoItemPageParser {
 
     private static void parseDuration(IVideoPage video, String itemContent) {
         String text = HtmlParserUtils.getText(itemContent, "p.subtitle");
-        Matcher m = Pattern.compile("(\\d\\d):(\\d\\d)\\s*Min").matcher(text);
+        Matcher m = Pattern.compile("\\|\\s*(\\d+)\\s*Min\\.\\s*\\|").matcher(text);
         if (m.find()) {
             int minutes = Integer.parseInt(m.group(1));
-            int seconds = Integer.parseInt(m.group(2));
-            video.setDuration(minutes * 60 + seconds);
+            video.setDuration(minutes * 60);
         } else {
-            logger.debug("No duration information found");
+            logger.debug("No duration information found: {}", text);
         }
     }
 
