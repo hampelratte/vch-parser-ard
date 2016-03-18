@@ -27,7 +27,7 @@ public class ProgramParser {
             String title = HtmlParserUtils.getText(teaserContent, "h4.headline");
             String subtitle = HtmlParserUtils.getText(teaserContent, "p.subtitle");
             Element pageLink = HtmlParserUtils.getTag(teaserContent, "a.mediaLink");
-            String programPageUri = ARDMediathekParser.BASE_URI + pageLink.attr("href");
+            String programPageUri = ARDMediathekParser.BASE_URI + pageLink.attr("href") + "&mcontents=page.1";
 
             IOverviewPage programPage = new OverviewPage();
             programPage.setParser(ARDMediathekParser.ID);

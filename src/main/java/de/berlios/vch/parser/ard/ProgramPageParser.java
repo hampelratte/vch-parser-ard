@@ -8,6 +8,9 @@ import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,12 +25,13 @@ import de.berlios.vch.parser.HtmlParserUtils;
 import de.berlios.vch.parser.IOverviewPage;
 import de.berlios.vch.parser.IVideoPage;
 import de.berlios.vch.parser.IWebPage;
+import de.berlios.vch.parser.OverviewPage;
 import de.berlios.vch.parser.VideoPage;
 
 public class ProgramPageParser {
     private static transient Logger logger = LoggerFactory.getLogger(ProgramPageParser.class);
 
-    public IWebPage parse(IOverviewPage opage) throws Exception {
+    public IWebPage parse(IOverviewPage opage, ResourceBundle resourceBundle) throws Exception {
         opage.getPages().clear();
 
         String content = HttpUtils.get(opage.getUri().toString(), ARDMediathekParser.HTTP_HEADERS, CHARSET);
@@ -55,7 +59,25 @@ public class ProgramPageParser {
             opage.getPages().add(video);
         }
 
-        // TODO möglichkeit für weitere seiten schaffen
+        try {
+            HtmlParserUtils.getTag(content, "div[class~=paging]");
+            Map<String, List<String>> params = HttpUtils.parseQuery(opage.getUri().getQuery());
+            String mcontents = params.get("mcontents").get(0);
+            Matcher m = Pattern.compile("(page\\.(\\d+))").matcher(mcontents);
+            if (m.matches()) {
+                int page = Integer.parseInt(m.group(2));
+                String uri = opage.getUri().toString().replace(m.group(1), "page." + ++page);
+
+                OverviewPage programmPage = new OverviewPage();
+                programmPage.setParser(ID);
+                programmPage.setTitle(resourceBundle.getString("I18N_MORE_ENTRIES"));
+                programmPage.setUri(new URI(uri));
+                opage.getPages().add(programmPage);
+            }
+        } catch (RuntimeException e) {
+            // no pagination found
+            logger.debug("No pagination found on page {}", opage.getUri());
+        }
         return opage;
     }
 

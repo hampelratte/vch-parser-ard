@@ -1,10 +1,13 @@
 package de.berlios.vch.parser.ard;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.ResourceBundle;
 import java.util.TreeMap;
 
 import org.apache.felix.ipojo.annotations.Component;
@@ -13,6 +16,8 @@ import org.apache.felix.ipojo.annotations.Requires;
 import org.osgi.framework.BundleContext;
 import org.osgi.service.log.LogService;
 
+import de.berlios.vch.i18n.ResourceBundleLoader;
+import de.berlios.vch.i18n.ResourceBundleProvider;
 import de.berlios.vch.parser.IOverviewPage;
 import de.berlios.vch.parser.IVideoPage;
 import de.berlios.vch.parser.IWebPage;
@@ -22,7 +27,7 @@ import de.berlios.vch.parser.VideoPage;
 
 @Component
 @Provides
-public class ARDMediathekParser implements IWebParser {
+public class ARDMediathekParser implements IWebParser, ResourceBundleProvider {
 
     @Requires
     private LogService logger;
@@ -37,6 +42,7 @@ public class ARDMediathekParser implements IWebParser {
     private ProgramPageParser programPageParser = new ProgramPageParser();
 
     private BundleContext ctx;
+    private ResourceBundle resourceBundle;
 
     private final Map<String, String> aBisZ = new TreeMap<String, String>();
 
@@ -118,7 +124,7 @@ public class ARDMediathekParser implements IWebParser {
             if (pageUri.contains("sendungen-a-z")) {
                 page = programParser.parse((IOverviewPage) page);
             } else {
-                page = programPageParser.parse((IOverviewPage) page);
+                page = programPageParser.parse((IOverviewPage) page, getResourceBundle());
             }
         } else if (page instanceof IVideoPage) {
             page = VideoItemPageParser.parse((VideoPage) page, ctx);
@@ -129,5 +135,18 @@ public class ARDMediathekParser implements IWebParser {
     @Override
     public String getId() {
         return ID;
+    }
+
+    @Override
+    public ResourceBundle getResourceBundle() {
+        if (resourceBundle == null) {
+            try {
+                logger.log(LogService.LOG_DEBUG, "Loading resource bundle for " + getClass().getSimpleName());
+                resourceBundle = ResourceBundleLoader.load(ctx, Locale.getDefault());
+            } catch (IOException e) {
+                logger.log(LogService.LOG_ERROR, "Couldn't load resource bundle", e);
+            }
+        }
+        return resourceBundle;
     }
 }
