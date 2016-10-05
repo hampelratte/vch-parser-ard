@@ -142,7 +142,7 @@ public class VideoItemPageParser {
     }
 
     private static String parseTitle(String content) {
-        return HtmlParserUtils.getText(content, "h4.headline");
+        return HtmlParserUtils.getText(content, ".headline");
     }
 
     private static List<VideoType> parseAvailableVideos(String content) throws URISyntaxException, JSONException, IOException {
