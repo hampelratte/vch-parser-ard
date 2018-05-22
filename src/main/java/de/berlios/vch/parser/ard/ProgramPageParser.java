@@ -97,7 +97,8 @@ public class ProgramPageParser {
             JSONObject imgObject = new JSONObject(json);
             String src = imgObject.getString("urlScheme");
             src = src.replaceAll("##width##", "320");
-            video.setThumbnail(new URI(BASE_URI + src));
+            logger.debug("Thumbnail {}", src);
+            video.setThumbnail(new URI(src));
         } catch (Throwable t) {
             logger.warn("Couldn't parse thumbnail image", t);
         }
