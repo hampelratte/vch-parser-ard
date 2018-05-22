@@ -33,7 +33,7 @@ public class ARDMediathekParser implements IWebParser, ResourceBundleProvider {
     private LogService logger;
 
     public static final String ID = ARDMediathekParser.class.getName();
-    public static final String BASE_URI = "http://www.ardmediathek.de";
+    public static final String BASE_URI = "https://www.ardmediathek.de";
     public static final String CHARSET = "UTF-8";
     private static final String ROOT_PAGE = "dummy://localhost/" + ID;
 
