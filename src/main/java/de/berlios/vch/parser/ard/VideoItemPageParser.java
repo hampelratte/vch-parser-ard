@@ -198,6 +198,9 @@ public class VideoItemPageParser {
                         continue;
                     }
 
+                    if(uriPart1.startsWith("//")) {
+                        uriPart1 = "https:" + uriPart1;
+                    }
                     VideoType vt = new VideoType(uriPart1, uriPart2, VideoType.FORMAT.MP4, quality);
                     videos.add(vt);
                 }
